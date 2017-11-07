@@ -25,3 +25,12 @@ body {
     font-size: 1.6em;
     font-weight: bold;
 }
+
+.tooltip {
+    position: absolute;
+    left: 100px;
+    top: 28px;
+    width: 200px;
+    height: 28px;
+    pointer-events: none;
+  }

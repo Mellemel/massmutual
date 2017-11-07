@@ -1,3 +1,4 @@
+// sidenote: refactor alignment of graph texts
 (() => {
     // Draw canvas
     const margin = { top: 40, right: 50, bottom: 40, left: 50 };
@@ -33,18 +34,21 @@
     const legend = g.append('g')
         .attr('class', 'legend')
 
+    const chart = g.append('g')
+
+    var tooltip = d3.select("body").append("div")
+        .attr("class", "tooltip")
+        .style("opacity", 0);
+
     // set up event listeners
     const select = document.getElementById('graph-select');
 
     fetchData(select.value)
     select.addEventListener('change', () => fetchData(select.value))
 
-    const color = {
-        'facebook_user_rank_avg': '#3B5998',
-        'youtube_user_rank_avg': '#c4302b'
-    }
-
     function fetchData(route) {
+        chart.selectAll('*').remove()
+        legend.selectAll('*').remove()
         d3.json('/api/' + route, res => {
             const { data } = res;
             switch (route) {
@@ -81,17 +85,22 @@
             .domain([40, 1])
             .rangeRound([1, height]);
 
+        const color = {
+            'facebook_user_rank_avg': '#3B5998',
+            'youtube_user_rank_avg': '#c4302b'
+        }
+
         xAxis.call(d3.axisBottom(x));
         yAxis.call(d3.axisLeft(y));
 
         graphTitle.text('Average Propensity of The Use of Social Media vs States')
             .attr('transform', function () {
-                return `translate(${width / 2 - this.getComputedTextLength()/2}, -15)`
+                return `translate(${width / 2 - this.getComputedTextLength() / 2}, -15)`
             })
 
-        graphTitleSubtext.text('(The lower the more likelier to use social media)')
+        graphTitleSubtext.text('(The lower, the more propensity to use social media)')
             .attr('transform', function () {
-                return `translate(${width / 2 - this.getComputedTextLength() /2}, 0)`
+                return `translate(${width / 2 - this.getComputedTextLength() / 2}, 0)`
             })
 
         xAxisLabel.text('States');
@@ -115,30 +124,101 @@
             .text(function (d) { return d; });
 
         // Draw the data
-        g.append('g')
-            .selectAll('g')
+        chart.selectAll('g')
             .data(d3.stack().keys(['facebook_user_rank_avg', 'youtube_user_rank_avg'])(data))
             .enter().append('g')
             .attr('fill', d => color[d.key])
             .selectAll('rect')
             .data(d => d)
             .enter().append('rect')
-            .attr("x", function (d) { return x(d.data.state); })
-            .attr("y", function (d) { return y(d[1]); })
-            .attr("height", function (d) { return y(d[0]) - y(d[1]); })
-            .attr("width", x.bandwidth());
+            .attr('x', function (d) { return x(d.data.state); })
+            .attr('y', function (d) { return y(d[1]); })
+            .attr('height', function (d) { return y(d[0]) - y(d[1]); })
+            .attr('width', x.bandwidth());
     }
     function updateRaceEcoGraph(data) {
-        graphTitle.text()
+        graphTitle.text('Customer Count vs Economic Stability')
+            .attr('transform', function () {
+                return `translate(${width / 2 - this.getComputedTextLength() / 2}, -15)`
+            });
+        graphTitleSubtext.text('')
+
+        const x = d3.scaleBand()
+            .padding(1)
+            .domain(data.map(val => val.economic_stability))
+            .range([0, width])
+
+        const y = d3.scaleLinear()
+            .domain([0, Math.max(...data.map(val => val.customer_count))])
+            .range([height, 0]);
+
+        const raceCodes = _.uniq(data.map(val => val.race_code))
+        const color = d3.scaleOrdinal()
+            .domain(raceCodes)
+            .range(d3.schemeCategory20b.slice(0, raceCodes.length))
+
+
         xAxis.call(d3.axisBottom(x));
-        xAxisLabel.text('States');
+        xAxisLabel.text('Economic Stability');
         yAxis.call(d3.axisLeft(y));
-        yAxisLabel.text('');
+        yAxisLabel.text('Customer Count');
+
+        const legendkeys = legend.selectAll('g')
+            .data(raceCodes)
+            .enter().append('g')
+            .attr('transform', (d, i) => `translate(0, ${i * 35})`);
+
+        legendkeys.append('rect')
+            .attr('x', width - 30)
+            .attr('width', 30)
+            .attr('height', 30)
+            .attr('fill', d => color(d));
+
+        legendkeys.append('text')
+            .attr('x', width - 35)
+            .attr('y', 10)
+            .attr('dy', "0.5em")
+            .text(function (d) { return d });
+
+        chart.selectAll('.dot')
+            .data(data)
+            .enter().append('circle')
+            .attr('class', '.dot')
+            .attr('r', 3.5)
+            .attr('cx', d => x(d.economic_stability))
+            .attr('cy', d => y(d.customer_count))
+            .attr('fill', d => color(d.race_code))
+            .on("mouseover", (d) => {
+                tooltip.transition()
+                    .duration(200)
+                    .style("opacity", .9);
+                tooltip.html(
+                    "race code: " + d.race_code + "<br/>" +
+                    "eco stab: " + d.economic_stability + "<br/>" +
+                    "cust count: " + d.customer_count + "<br/>"
+                )
+                    .style("left", (d3.event.pageX + 5) + "px")
+                    .style("top", (d3.event.pageY - 28) + "px");
+            })
+            .on("mouseout", function (d) {
+                tooltip.transition()
+                    .duration(500)
+                    .style("opacity", 0);
+            });
     }
     function updateGenderIncGraph(data) {
-        xAxis.call(d3.axisBottom(x));
-        xAxisLabel.text('States');
-        yAxis.call(d3.axisLeft(y));
-        yAxisLabel.text('');
+        // graphTitle.text('Average Propensity of The Use of Social Media vs States')
+        //     .attr('transform', function () {
+        //         return `translate(${width / 2 - this.getComputedTextLength() / 2}, -15)`
+        //     })
+
+        // graphTitleSubtext.text('(The lower the more likelier to use social media)')
+        //     .attr('transform', function () {
+        //         return `translate(${width / 2 - this.getComputedTextLength() / 2}, 0)`
+        //     })
+        // xAxis.call(d3.axisBottom(x));
+        // xAxisLabel.text('States');
+        // yAxis.call(d3.axisLeft(y));
+        // yAxisLabel.text('');
     }
 })()
