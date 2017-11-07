@@ -69,8 +69,9 @@ def api_gender_income():
 def api_economic_stability():
 
     query = """
-    select race_code, economic_stability, count(*) customer_count
+    select race.value as race_code, economic_stability, count(*) customer_count
     from customer
+    inner join race on customer.race_code == race.code
     group by race_code, economic_stability
     order by race_code, economic_stability
     """
